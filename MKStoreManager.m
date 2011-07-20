@@ -50,7 +50,8 @@
 @property (nonatomic, retain) NSMutableDictionary *subscriptionProducts;
 
 @property (nonatomic, retain) MKStoreObserver *storeObserver;
-@property (nonatomic, assign, getter=isProductsAvailable) BOOL isProductsAvailable;
+@property (nonatomic, retain) SKProductsRequest *currentRequest;
+@property (nonatomic, assign, getter=areProductsAvailable) BOOL productsAvailable;
 
 - (void) requestProductData;
 - (void) startVerifyingSubscriptionReceipts;
@@ -62,9 +63,10 @@
 
 @synthesize purchasableObjects = _purchasableObjects;
 @synthesize storeObserver = _storeObserver;
+@synthesize currentRequest = _currentRequest;
 @synthesize subscriptionProducts;
 
-@synthesize isProductsAvailable;
+@synthesize productsAvailable = _productsAvailable;
 
 @synthesize onTransactionCancelled;
 @synthesize onTransactionCompleted;
@@ -144,7 +146,7 @@ static MKStoreManager* _sharedStoreManager;
         if (_sharedStoreManager == nil) {
             
 #if TARGET_IPHONE_SIMULATOR
-			NSLog(@"You are running in Simulator MKStoreKit runs only on devices");
+			NSLog(@"You are running in Simulator IAP runs only on devices");
 #else
             _sharedStoreManager = [[self alloc] init];					
 			_sharedStoreManager.purchasableObjects = [[NSMutableArray alloc] init];
@@ -206,9 +208,14 @@ static MKStoreManager* _sharedStoreManager;
 
 -(NSDictionary*) storeKitItems
 {
-    return [NSDictionary dictionaryWithContentsOfFile:
-            [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
-             @"MKStoreKitConfigs.plist"]];
+	static NSDictionary *skItems;
+	if (!skItems)
+	{
+		skItems = [[NSDictionary dictionaryWithContentsOfFile:
+				   [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
+					@"MKStoreKitConfigs.plist"]] retain];
+	}
+    return skItems;
 }
 
 - (void) restorePreviousTransactionsOnComplete:(void (^)(void)) completionBlock
@@ -247,8 +254,12 @@ static MKStoreManager* _sharedStoreManager;
     
 	SKProductsRequest *request= [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithArray:productsArray]];
 	request.delegate = self;
+	[self setCurrentRequest:request];
+
 	[request start];
+	[request release];
 }
+
 - (BOOL) removeAllKeychainData {
     NSMutableArray *productsArray = [NSMutableArray array];
     NSArray *consumables = [[[self storeKitItems] objectForKey:@"Consumables"] allKeys];
@@ -260,7 +271,7 @@ static MKStoreManager* _sharedStoreManager;
     [productsArray addObjectsFromArray:subscriptions];
     
     int itemCount = productsArray.count;
-    NSError *error;
+    NSError *error = nil;
     
     //loop through all the saved keychain data and remove it    
     for (int i = 0; i < itemCount; i++ ) {
@@ -290,20 +301,20 @@ static MKStoreManager* _sharedStoreManager;
 		NSLog(@"Problem in iTunes connect configuration for product: %@", invalidProduct);
 #endif
 	
-	[request autorelease];
+	[self setCurrentRequest:nil];
 	
-	isProductsAvailable = YES;    
+	[self setProductsAvailable:YES];
     [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification 
-                                                        object:[NSNumber numberWithBool:isProductsAvailable]];
+                                                        object:[NSNumber numberWithBool:self.productsAvailable]];
 }
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error
 {
 	[request autorelease];
 	
-	isProductsAvailable = NO;	
+	[self setProductsAvailable:NO];	
     [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification 
-                                                        object:[NSNumber numberWithBool:isProductsAvailable]];
+                                                        object:[NSNumber numberWithBool:self.productsAvailable]];
 }
 
 // call this function to check if the user has already purchased your feature

@@ -148,9 +148,8 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    NSString *responseString = [[[NSString alloc] initWithData:self.dataFromConnection 
-                                                      encoding:NSASCIIStringEncoding] 
-                                autorelease];
+    NSString *responseString = [[NSString alloc] initWithData:self.dataFromConnection 
+                                                      encoding:NSASCIIStringEncoding];
 	
     self.dataFromConnection = nil;
 
@@ -225,9 +224,7 @@ didReceiveResponse:(NSURLResponse *)response
         
         [onReviewRequestVerificationFailed release], onReviewRequestVerificationFailed = nil;
     }
-	
-	[responseString release];
-    
+
 }
 
 + (void)connection:(NSURLConnection *)connection
