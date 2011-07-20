@@ -40,7 +40,7 @@
 
 @interface MKStoreManager () //private methods and properties
 
-@property (nonatomic, copy) void (^onTransactionCancelled)();
+@property (nonatomic, copy) void (^onTransactionCancelled)(NSError *error);
 @property (nonatomic, copy) void (^onTransactionCompleted)(NSString *productId);
 
 @property (nonatomic, copy) void (^onRestoreFailed)(NSError* error);
@@ -362,7 +362,7 @@ static MKStoreManager* _sharedStoreManager;
 
 - (void) buyFeature:(NSString*) featureId
          onComplete:(void (^)(NSString*)) completionBlock         
-        onCancelled:(void (^)(void)) cancelBlock
+        onCancelled:(void (^)(NSError*)) cancelBlock
 {
     self.onTransactionCompleted = completionBlock;
     self.onTransactionCancelled = cancelBlock;
@@ -518,7 +518,7 @@ static MKStoreManager* _sharedStoreManager;
              {
                  if(self.onTransactionCancelled)
                  {
-                     self.onTransactionCancelled(productIdentifier);
+                     self.onTransactionCancelled(error);
                  }
                  else
                  {
@@ -565,7 +565,7 @@ static MKStoreManager* _sharedStoreManager;
 #endif
     
     if(self.onTransactionCancelled)
-        self.onTransactionCancelled();
+        self.onTransactionCancelled(transaction.error);
 }
 
 - (void) failedTransaction: (SKPaymentTransaction *)transaction
@@ -575,17 +575,9 @@ static MKStoreManager* _sharedStoreManager;
     NSLog(@"Failed transaction: %@", [transaction description]);
     NSLog(@"error: %@", transaction.error);    
 #endif
-	
-    UIAlertView *alert = [[UIAlertView alloc] initWithTitle:[transaction.error localizedFailureReason] 
-													message:[transaction.error localizedRecoverySuggestion]
-												   delegate:self 
-										  cancelButtonTitle:NSLocalizedString(@"Dismiss", @"")
-										  otherButtonTitles: nil];
-	[alert show];
-	[alert release];
-    
+
     if(self.onTransactionCancelled)
-        self.onTransactionCancelled();
+        self.onTransactionCancelled(transaction.error);
 }
 
 @end
