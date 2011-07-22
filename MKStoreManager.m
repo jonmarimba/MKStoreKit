@@ -146,7 +146,7 @@ static MKStoreManager* _sharedStoreManager;
         if (_sharedStoreManager == nil) {
             
 #if TARGET_IPHONE_SIMULATOR
-			NSLog(@"You are running in Simulator IAP runs only on devices");
+			NSLog(@"You are running in the Simulator; IAP works only on devices");
 #else
             _sharedStoreManager = [[self alloc] init];					
 			_sharedStoreManager.purchasableObjects = [[NSMutableArray alloc] init];
