@@ -149,9 +149,9 @@ static MKStoreManager* _sharedStoreManager;
 			NSLog(@"You are running in the Simulator; IAP works only on devices");
 #else
             _sharedStoreManager = [[self alloc] init];					
-			_sharedStoreManager.purchasableObjects = [[NSMutableArray alloc] init];
+			_sharedStoreManager.purchasableObjects = [NSMutableArray array];
 			[_sharedStoreManager requestProductData];						
-			_sharedStoreManager.storeObserver = [[MKStoreObserver alloc] init];
+			_sharedStoreManager.storeObserver = [[[MKStoreObserver alloc] init] autorelease];
 			[[SKPaymentQueue defaultQueue] addTransactionObserver:_sharedStoreManager.storeObserver];            
             [_sharedStoreManager startVerifyingSubscriptionReceipts];
 #endif
