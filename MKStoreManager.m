@@ -228,9 +228,9 @@ static MKStoreManager* _sharedStoreManager;
 	static NSDictionary *skItems;
 	if (!skItems)
 	{
-		skItems = [[NSDictionary dictionaryWithContentsOfFile:
+		skItems = [NSDictionary dictionaryWithContentsOfFile:
 				   [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
-					@"MKStoreKitConfigs.plist"]] retain];
+					@"MKStoreKitConfigs.plist"]];
 	}
     return skItems;
 }
@@ -274,7 +274,6 @@ static MKStoreManager* _sharedStoreManager;
 	[self setCurrentRequest:request];
 
 	[request start];
-	[request release];
 }
 
 - (BOOL) removeAllKeychainData {
@@ -326,7 +325,6 @@ static MKStoreManager* _sharedStoreManager;
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error
 {
-	[request autorelease];
 	[self setProductsAvailable:NO];	
     [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification 
                                                         object:[NSNumber numberWithBool:self.productsAvailable]];
@@ -577,7 +575,10 @@ NSString *upgradePrice = [prices objectForKey:@"com.mycompany.upgrade"]
             if(!receiptData) {
                 if(self.onTransactionCancelled)
                 {
-                    self.onTransactionCancelled(productIdentifier);
+                    NSString *description = [NSString stringWithFormat:@"Receipt invalid for product %@", productIdentifier];
+                    NSDictionary *uInfo = [NSDictionary dictionaryWithObject:description forKey:NSLocalizedDescriptionKey];
+                    NSError *err = [NSError errorWithDomain:@"com.company.product.malformedPDFDATA" code:0 userInfo:uInfo];
+                    self.onTransactionCancelled(err);
                 }
                 else
                 {
