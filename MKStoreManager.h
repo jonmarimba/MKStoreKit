@@ -3,7 +3,7 @@
 //  MKStoreKit (Version 4.0)
 //
 //  Created by Mugunth Kumar on 17-Nov-2010.
-//  Version 4.0
+//  Version 4.1
 //  Copyright 2010 Steinlogic. All rights reserved.
 //	File created using Singleton XCode Template by Mugunth Kumar (http://mugunthkumar.com
 //  Permission granted to do anything, commercial/non-commercial with this file apart from removing the line/URL above
@@ -58,7 +58,8 @@
 
 // this is a static method, since it doesn't require the store manager to be initialized prior to calling
 + (BOOL) isFeaturePurchased:(NSString*) featureId; 
-
+//returns a dictionary with all prices for identifiers
+- (NSMutableDictionary *)pricesDictionary;
 - (NSMutableArray*) purchasableObjectsDescription;
 
 // use this method to invoke a purchase

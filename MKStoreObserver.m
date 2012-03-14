@@ -3,7 +3,7 @@
 //  MKStoreKit (Version 4.0)
 //
 //  Created by Mugunth Kumar on 17-Nov-2010.
-//  Version 4.0
+//  Version 4.1
 //  Copyright 2010 Steinlogic. All rights reserved.
 //	File created using Singleton XCode Template by Mugunth Kumar (http://mugunthkumar.com
 //  Permission granted to do anything, commercial/non-commercial with this file apart from removing the line/URL above
@@ -73,24 +73,36 @@
 }
 
 - (void) failedTransaction: (SKPaymentTransaction *)transaction
-{	
-	[[MKStoreManager sharedManager] transactionCanceled:transaction];
+{
+    if(transaction.error.code == SKErrorPaymentCancelled)
+        [[MKStoreManager sharedManager] transactionCanceled:transaction];
+    else
+        [[MKStoreManager sharedManager] failedTransaction:transaction];
     [[SKPaymentQueue defaultQueue] finishTransaction: transaction];	
 }
 
 - (void) completeTransaction: (SKPaymentTransaction *)transaction
-{		
-	
+{			
+#if TARGET_OS_IPHONE
     [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier 
 									   forReceipt:transaction.transactionReceipt];	
+#elif TARGET_OS_MAC
+    [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier 
+                                        forReceipt:nil];	
+#endif
 
     [[SKPaymentQueue defaultQueue] finishTransaction: transaction];	
 }
 
 - (void) restoreTransaction: (SKPaymentTransaction *)transaction
 {	
+#if TARGET_OS_IPHONE
     [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier
-									   forReceipt:transaction.transactionReceipt];
+                                        forReceipt:transaction.transactionReceipt];
+#elif TARGET_OS_MAC
+    [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier
+                                        forReceipt:nil];
+#endif
 	
     [[SKPaymentQueue defaultQueue] finishTransaction: transaction];	
 }
