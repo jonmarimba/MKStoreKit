@@ -59,8 +59,9 @@
 // this is a static method, since it doesn't require the store manager to be initialized prior to calling
 + (BOOL) isFeaturePurchased:(NSString*) featureId; 
 //returns a dictionary with all prices for identifiers
-- (NSMutableDictionary *)pricesDictionary;
-- (NSMutableArray*) purchasableObjectsDescription;
+- (NSDictionary *)pricesDictionary;
+- (NSArray*) purchasableObjectsDescription;
+- (NSArray *)purchasableObjects;
 
 // use this method to invoke a purchase
 - (void) buyFeature:(NSString*) featureId

@@ -98,7 +98,8 @@ static MKStoreManager* _sharedStoreManager;
 }
 
 +(BOOL) iCloudAvailable {
-    
+    return NO;
+    /*
     if(NSClassFromString(@"NSUbiquitousKeyValueStore")) { // is iOS 5?
         
         if([NSUbiquitousKeyValueStore defaultStore]) {  // is iCloud enabled
@@ -108,6 +109,7 @@ static MKStoreManager* _sharedStoreManager;
     }
     
     return NO;
+     */
 }
 
 - (void)dealloc {
@@ -196,7 +198,7 @@ static MKStoreManager* _sharedStoreManager;
             _sharedStoreManager = [[self alloc] init];					
 			_sharedStoreManager.purchasableObjects = [NSMutableArray array];
 			[_sharedStoreManager requestProductData];						
-			_sharedStoreManager.storeObserver = [[[MKStoreObserver alloc] init] autorelease];
+			_sharedStoreManager.storeObserver = [[MKStoreObserver alloc] init];
 			[[SKPaymentQueue defaultQueue] addTransactionObserver:_sharedStoreManager.storeObserver];            
             [_sharedStoreManager startVerifyingSubscriptionReceipts];
         
@@ -303,8 +305,9 @@ static MKStoreManager* _sharedStoreManager;
 
 - (void)productsRequest:(SKProductsRequest *)request didReceiveResponse:(SKProductsResponse *)response
 {
-	[self.purchasableObjects addObjectsFromArray:response.products];
-	
+    NSMutableArray *mutablePurchasableObjects = [self.purchasableObjects mutableCopy];
+	[mutablePurchasableObjects addObjectsFromArray:response.products];
+    self.purchasableObjects = [NSArray arrayWithArray:mutablePurchasableObjects];
 #ifndef NDEBUG	
 	for(int i=0;i<[self.purchasableObjects count];i++)
 	{		
@@ -345,7 +348,7 @@ static MKStoreManager* _sharedStoreManager;
 // Call this function to populate your UI
 // this function automatically formats the currency based on the user's locale
 
-- (NSMutableArray*) purchasableObjectsDescription
+- (NSArray*) purchasableObjectsDescription
 {
 	NSMutableArray *productDescriptions = [[NSMutableArray alloc] initWithCapacity:[self.purchasableObjects count]];
 	for(int i=0;i<[self.purchasableObjects count];i++)
@@ -367,7 +370,7 @@ static MKStoreManager* _sharedStoreManager;
 		[productDescriptions addObject: description];
 	}
 	
-	return productDescriptions;
+	return [NSArray arrayWithArray:productDescriptions];
 }
 
 /*Call this function to get a dictionary with all prices of all your product identifers 
@@ -379,7 +382,7 @@ NSDictionary *prices = [[MKStoreManager sharedManager] pricesDictionary];
 NSString *upgradePrice = [prices objectForKey:@"com.mycompany.upgrade"]
 
 */
-- (NSMutableDictionary *)pricesDictionary {
+- (NSDictionary *)pricesDictionary {
     NSMutableDictionary *priceDict = [NSMutableDictionary dictionary];
 	for(int i=0;i<[self.purchasableObjects count];i++)
 	{
@@ -395,7 +398,7 @@ NSString *upgradePrice = [prices objectForKey:@"com.mycompany.upgrade"]
         [priceDict setObject:priceString forKey:product.productIdentifier]; 
         
     }
-    return priceDict;
+    return [NSDictionary dictionaryWithDictionary:priceDict];
 }
 
 -(void) showAlertWithTitle:(NSString*) title message:(NSString*) message {
@@ -442,7 +445,6 @@ NSString *upgradePrice = [prices objectForKey:@"com.mycompany.upgrade"]
          {
              [self addToQueue:featureId];
          }
-         
      }                                                                   
                                       onError:^(NSError* error)
      {
