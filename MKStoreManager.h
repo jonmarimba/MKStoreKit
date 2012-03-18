@@ -53,6 +53,9 @@
 
 @interface MKStoreManager : NSObject<SKProductsRequestDelegate>
 
+@property (nonatomic, assign, readonly) BOOL fetchingProducts;
+@property (nonatomic, assign, readonly, getter=areProductsAvailable) BOOL productsAvailable;
+
 // These are the methods you will be using in your app
 + (MKStoreManager*)sharedManager;
 
