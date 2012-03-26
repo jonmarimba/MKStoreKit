@@ -48,21 +48,16 @@ static NSMutableData *sDataFromConnection;
 +(NSString*) deviceId {
     
 #if TARGET_OS_IPHONE
-    UIDevice *dev = [UIDevice currentDevice];
-    NSString *uniqueID;
-    if ([dev respondsToSelector:@selector(uniqueIdentifier)])
-        uniqueID = [dev valueForKey:@"uniqueIdentifier"];
+    NSString *uniqueID = nil;
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    id uuid = [defaults objectForKey:@"uniqueID"];
+    if (uuid)
+        uniqueID = (NSString *)uuid;
     else {
-        NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
-        id uuid = [defaults objectForKey:@"uniqueID"];
-        if (uuid)
-            uniqueID = (NSString *)uuid;
-        else {
-            CFStringRef cfUuid = CFUUIDCreateString(NULL, CFUUIDCreate(NULL));
-            uniqueID = (__bridge NSString *)cfUuid;
-            CFRelease(cfUuid);
-            [defaults setObject:uniqueID forKey:@"uniqueID"];
-        }
+        CFStringRef cfUuid = CFUUIDCreateString(NULL, CFUUIDCreate(NULL));
+        uniqueID = (__bridge NSString *)cfUuid;
+        CFRelease(cfUuid);
+        [defaults setObject:uniqueID forKey:@"uniqueID"];
     }
 	return uniqueID;
 	
@@ -139,7 +134,7 @@ static NSMutableData *sDataFromConnection;
     {
         onReviewRequestVerificationSucceeded = [completionBlock copy];
         onReviewRequestVerificationFailed = [errorBlock copy];
-
+        
         NSString *uniqueID = [self deviceId];
         // check udid and featureid with developer's server
 		
@@ -215,8 +210,8 @@ didReceiveResponse:(NSURLResponse *)response
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
     NSString *responseString = [[NSString alloc] initWithData:self.dataFromConnection 
-                                                      encoding:NSASCIIStringEncoding];
-
+                                                     encoding:NSASCIIStringEncoding];
+    
     self.dataFromConnection = nil;
     
 	if([responseString isEqualToString:@"YES"])		
