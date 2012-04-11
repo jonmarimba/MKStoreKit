@@ -53,14 +53,18 @@
 
 @interface MKStoreManager : NSObject<SKProductsRequestDelegate>
 
+@property (nonatomic, assign, readonly) BOOL fetchingProducts;
+@property (nonatomic, assign, readonly, getter=areProductsAvailable) BOOL productsAvailable;
+
 // These are the methods you will be using in your app
 + (MKStoreManager*)sharedManager;
 
 // this is a static method, since it doesn't require the store manager to be initialized prior to calling
 + (BOOL) isFeaturePurchased:(NSString*) featureId; 
 //returns a dictionary with all prices for identifiers
-- (NSMutableDictionary *)pricesDictionary;
-- (NSMutableArray*) purchasableObjectsDescription;
+- (NSDictionary *)pricesDictionary;
+- (NSArray*) purchasableObjectsDescription;
+- (NSArray *)purchasableObjects;
 
 // use this method to invoke a purchase
 - (void) buyFeature:(NSString*) featureId
