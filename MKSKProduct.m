@@ -52,14 +52,14 @@ static NSMutableData *sDataFromConnection;
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     id uuid = [defaults objectForKey:@"uniqueID"];
     if (uuid)
-        uniqueID = (NSString *)uuid;
+        uniqueID = (NSString *)[uuid retain];
     else {
-        CFStringRef cfUuid = CFUUIDCreateString(NULL, CFUUIDCreate(NULL));
-        uniqueID = (__bridge NSString *)cfUuid;
-        CFRelease(cfUuid);
+        CFUUIDRef uuidObject = CFUUIDCreate(kCFAllocatorDefault);
+        uniqueID = (NSString *)CFUUIDCreateString(NULL, uuidObject);
+        CFRelease(uuidObject);
         [defaults setObject:uniqueID forKey:@"uniqueID"];
     }
-	return uniqueID;
+	return [uniqueID autorelease];
 	
 #elif TARGET_OS_MAC 
     
@@ -123,45 +123,6 @@ static NSMutableData *sDataFromConnection;
 
 #pragma mark -
 #pragma mark In-App purchases promo codes support
-// This function is only used if you want to enable in-app purchases for free for reviewers
-// Read my blog post http://mk.sg/31
-
-+(void) verifyProductForReviewAccess:(NSString*) productId
-                          onComplete:(void (^)(NSNumber*)) completionBlock
-                             onError:(void (^)(NSError*)) errorBlock
-{
-    if(REVIEW_ALLOWED)
-    {
-        onReviewRequestVerificationSucceeded = [completionBlock copy];
-        onReviewRequestVerificationFailed = [errorBlock copy];
-        
-        NSString *uniqueID = [self deviceId];
-        // check udid and featureid with developer's server
-		
-        NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/%@", OWN_SERVER, @"featureCheck.php"]];
-        
-        NSMutableURLRequest *theRequest = [NSMutableURLRequest requestWithURL:url 
-                                                                  cachePolicy:NSURLRequestReloadIgnoringCacheData 
-                                                              timeoutInterval:60];
-        
-        [theRequest setHTTPMethod:@"POST"];		
-        [theRequest setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
-        
-        NSString *postData = [NSString stringWithFormat:@"productid=%@&udid=%@", productId, uniqueID];
-        
-        NSString *length = [NSString stringWithFormat:@"%d", [postData length]];	
-        [theRequest setValue:length forHTTPHeaderField:@"Content-Length"];	
-        
-        [theRequest setHTTPBody:[postData dataUsingEncoding:NSASCIIStringEncoding]];
-        
-        sConnection = [NSURLConnection connectionWithRequest:theRequest delegate:self];    
-        [sConnection start];	
-    }
-    else
-    {
-        completionBlock([NSNumber numberWithBool:NO]);
-    }
-}
 
 - (void) verifyReceiptOnComplete:(void (^)(void)) completionBlock
                          onError:(void (^)(NSError*)) errorBlock
@@ -181,6 +142,7 @@ static NSMutableData *sDataFromConnection;
 	NSString *receiptDataString = [[NSString alloc] initWithString:[self.receipt base64EncodedString]];
     
 	NSString *postData = [NSString stringWithFormat:@"receiptdata=%@", receiptDataString];
+	[receiptDataString release];
 	
 	NSString *length = [NSString stringWithFormat:@"%d", [postData length]];	
 	[theRequest setValue:length forHTTPHeaderField:@"Content-Length"];	
@@ -209,11 +171,11 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    NSString *responseString = [[NSString alloc] initWithData:self.dataFromConnection 
-                                                     encoding:NSASCIIStringEncoding];
-    
+    NSString *responseString = [[[NSString alloc] initWithData:self.dataFromConnection 
+                                                      encoding:NSASCIIStringEncoding] 
+                                autorelease];
     self.dataFromConnection = nil;
-    
+
 	if([responseString isEqualToString:@"YES"])		
 	{
         if(self.onReceiptVerificationSucceeded)
@@ -230,15 +192,13 @@ didReceiveResponse:(NSURLResponse *)response
             self.onReceiptVerificationFailed = nil;
         }
     }
-	
-    
 }
 
 
 - (void)connection:(NSURLConnection *)connection
   didFailWithError:(NSError *)error
 {
-    
+
     self.dataFromConnection = nil;
     if(self.onReceiptVerificationFailed)
     {
@@ -263,17 +223,18 @@ didReceiveResponse:(NSURLResponse *)response
 
 + (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    NSString *responseString = [[NSString alloc] initWithData:sDataFromConnection 
-                                                     encoding:NSASCIIStringEncoding];
+    NSString *responseString = [[[NSString alloc] initWithData:sDataFromConnection 
+                                                      encoding:NSASCIIStringEncoding] 
+                                autorelease];
 	
-    sDataFromConnection = nil;
-    
+    [sDataFromConnection release], sDataFromConnection = nil;
+
 	if([responseString isEqualToString:@"YES"])		
 	{
         if(onReviewRequestVerificationSucceeded)
         {
             onReviewRequestVerificationSucceeded();
-            onReviewRequestVerificationFailed = nil;
+            [onReviewRequestVerificationSucceeded release], onReviewRequestVerificationFailed = nil;
         }
 	}
     else
@@ -281,19 +242,19 @@ didReceiveResponse:(NSURLResponse *)response
         if(onReviewRequestVerificationFailed)
             onReviewRequestVerificationFailed(nil);
         
-        onReviewRequestVerificationFailed = nil;
+        [onReviewRequestVerificationFailed release], onReviewRequestVerificationFailed = nil;
     }
 }
 
 + (void)connection:(NSURLConnection *)connection
   didFailWithError:(NSError *)error
 {
-    sDataFromConnection = nil;
-    
+    [sDataFromConnection release], sDataFromConnection = nil;
+
     if(onReviewRequestVerificationFailed)
     {
         onReviewRequestVerificationFailed(nil);    
-        onReviewRequestVerificationFailed = nil;
+        [onReviewRequestVerificationFailed release], onReviewRequestVerificationFailed = nil;
     }
 }
 @end
