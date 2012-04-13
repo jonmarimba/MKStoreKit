@@ -82,7 +82,6 @@ static MKStoreManager* _sharedStoreManager;
     return [self currentRequest] != nil;
 }
 
-
 +(BOOL) iCloudAvailable {
     return NO;
 }
@@ -248,8 +247,7 @@ static MKStoreManager* _sharedStoreManager;
 	static NSDictionary *skItems;
 	if (!skItems)
 	{
-		skItems = [NSDictionary dictionaryWithContentsOfFile:
-				   [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
+		skItems = [[NSDictionary alloc] initWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
 					@"MKStoreKitConfigs.plist"]];
 	}
     return skItems;
