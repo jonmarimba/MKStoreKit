@@ -32,7 +32,6 @@
 //	3) or a tweet mentioning @mugunthkumar
 //	4) A paypal donation to mugunth.kumar@gmail.com
 
-
 #import "MKStoreManager.h"
 #import "SFHFKeychainUtils.h"
 #import "MKSKSubscriptionProduct.h"
@@ -244,11 +243,16 @@ static MKStoreManager* _sharedStoreManager;
 
 -(NSDictionary*) storeKitItems
 {
-	static NSDictionary *skItems;
+    return [[self class] storeKitItems];
+}
+
++(NSDictionary *)storeKitItems
+{
+    static NSDictionary *skItems;
 	if (!skItems)
 	{
 		skItems = [[NSDictionary alloc] initWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
-					@"MKStoreKitConfigs.plist"]];
+                                                                @"MKStoreKitConfigs.plist"]];
 	}
     return skItems;
 }
@@ -298,7 +302,7 @@ static MKStoreManager* _sharedStoreManager;
     }
 }
 
-- (BOOL) removeAllKeychainData {
++ (BOOL) removeAllKeychainData {
     NSMutableArray *productsArray = [NSMutableArray array];
     NSArray *consumables = [[[self storeKitItems] objectForKey:@"Consumables"] allKeys];
     NSArray *nonConsumables = [[self storeKitItems] objectForKey:@"Non-Consumables"];

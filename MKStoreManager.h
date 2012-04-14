@@ -79,7 +79,7 @@
 - (BOOL) consumeProduct:(NSString*) productName quantity:(int) quantity;
 - (BOOL) isSubscriptionActive:(NSString*) featureId;
 //for testing proposes you can use this method to remove all the saved keychain data (saved purchases, etc.)
-- (BOOL) removeAllKeychainData;
++ (BOOL) removeAllKeychainData;
 
 +(void) setObject:(id) object forKey:(NSString*) key;
 +(NSNumber*) numberForKey:(NSString*) key;
