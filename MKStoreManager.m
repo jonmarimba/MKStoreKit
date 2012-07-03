@@ -135,6 +135,15 @@ static MKStoreManager* _sharedStoreManager;
     }
 }
 
++(id) receiptForKey:(NSString*) key {
+    
+    NSData *receipt = [MKStoreManager objectForKey:key];
+    if(!receipt)
+        receipt = [MKStoreManager objectForKey:[NSString stringWithFormat:@"%@-receipt", key]];
+    
+    return receipt;
+}
+
 +(id) objectForKey:(NSString*) key
 {
     NSError *error = nil;
