@@ -1,9 +1,8 @@
 //
-//  StoreManager.h
-//  MKStoreKit (Version 4.0)
+//  MKStoreManager.h
+//  MKStoreKit (Version 4.2)
 //
 //  Created by Mugunth Kumar on 17-Nov-2010.
-//  Version 4.1
 //  Copyright 2010 Steinlogic. All rights reserved.
 //	File created using Singleton XCode Template by Mugunth Kumar (http://mugunthkumar.com
 //  Permission granted to do anything, commercial/non-commercial with this file apart from removing the line/URL above
@@ -68,12 +67,12 @@
 
 // use this method to invoke a purchase
 - (void) buyFeature:(NSString*) featureId
-         onComplete:(void (^)(NSString*)) completionBlock         
-        onCancelled:(void (^)(NSError*)) cancelBlock;
+         onComplete:(void (^)(NSString* purchasedFeature, NSData*purchasedReceipt)) completionBlock         
+        onCancelled:(void (^)(void)) cancelBlock;
 
 // use this method to restore a purchase
 - (void) restorePreviousTransactionsOnComplete:(void (^)(void)) completionBlock
-                                       onError:(void (^)(NSError*)) errorBlock;
+                                       onError:(void (^)(NSError* error)) errorBlock;
 
 - (BOOL) canConsumeProduct:(NSString*) productName quantity:(int) quantity;
 - (BOOL) consumeProduct:(NSString*) productName quantity:(int) quantity;
@@ -81,6 +80,7 @@
 //for testing proposes you can use this method to remove all the saved keychain data (saved purchases, etc.)
 + (BOOL) removeAllKeychainData;
 
++(id) receiptForKey:(NSString*) key;
 +(void) setObject:(id) object forKey:(NSString*) key;
 +(NSNumber*) numberForKey:(NSString*) key;
 

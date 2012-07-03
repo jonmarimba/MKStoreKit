@@ -1,11 +1,10 @@
 //
 //  MKSKProduct.m
-//  MKStoreKitDemo
-//  Version 4.1
+//  MKStoreKit (Version 4.2)
 //
 //  Created by Mugunth on 04/07/11.
 //  Copyright 2011 Steinlogic. All rights reserved.
-
+//
 //  Licensing (Zlib)
 //  This software is provided 'as-is', without any express or implied
 //  warranty.  In no event will the authors be held liable for any damages
@@ -24,13 +23,12 @@
 //  3. This notice may not be removed or altered from any source distribution.
 
 //  As a side note on using this code, you might consider giving some credit to me by
-//	1) linking my website from your app's website 
-//	2) or crediting me inside the app's credits page 
+//	1) linking my website from your app's website
+//	2) or crediting me inside the app's credits page
 //	3) or a tweet mentioning @mugunthkumar
 //	4) A paypal donation to mugunth.kumar@gmail.com
 
 #import "MKSKProduct.h"
-#import "NSData+Base64.h"
 
 static void (^onReviewRequestVerificationSucceeded)();
 static void (^onReviewRequestVerificationFailed)();
@@ -60,8 +58,7 @@ static NSMutableData *sDataFromConnection;
         [defaults setObject:uniqueID forKey:@"uniqueID"];
     }
 	return [uniqueID autorelease];
-	
-#elif TARGET_OS_MAC 
+#elif TARGET_OS_MAC
     
     kern_return_t			 kernResult;
 	mach_port_t			   master_port;
@@ -132,25 +129,26 @@ static NSMutableData *sDataFromConnection;
     
     NSURL *url = [NSURL URLWithString:[NSString stringWithFormat:@"%@/%@", OWN_SERVER, @"verifyProduct.php"]];
 	
-	NSMutableURLRequest *theRequest = [NSMutableURLRequest requestWithURL:url 
-                                                              cachePolicy:NSURLRequestReloadIgnoringCacheData 
+	NSMutableURLRequest *theRequest = [NSMutableURLRequest requestWithURL:url
+                                                              cachePolicy:NSURLRequestReloadIgnoringCacheData
                                                           timeoutInterval:60];
 	
-	[theRequest setHTTPMethod:@"POST"];		
+	[theRequest setHTTPMethod:@"POST"];
 	[theRequest setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
 	
-	NSString *receiptDataString = [[NSString alloc] initWithString:[self.receipt base64EncodedString]];
+	NSString *receiptDataString = [[NSString alloc] initWithData:self.receipt
+                                                        encoding:NSASCIIStringEncoding];
     
 	NSString *postData = [NSString stringWithFormat:@"receiptdata=%@", receiptDataString];
 	[receiptDataString release];
 	
-	NSString *length = [NSString stringWithFormat:@"%d", [postData length]];	
-	[theRequest setValue:length forHTTPHeaderField:@"Content-Length"];	
+	NSString *length = [NSString stringWithFormat:@"%d", [postData length]];
+	[theRequest setValue:length forHTTPHeaderField:@"Content-Length"];
 	
 	[theRequest setHTTPBody:[postData dataUsingEncoding:NSASCIIStringEncoding]];
 	
-    self.theConnection = [NSURLConnection connectionWithRequest:theRequest delegate:self];    
-    [self.theConnection start];	
+    self.theConnection = [NSURLConnection connectionWithRequest:theRequest delegate:self];
+    [self.theConnection start];
 }
 
 
@@ -159,7 +157,7 @@ static NSMutableData *sDataFromConnection;
 
 - (void)connection:(NSURLConnection *)connection
 didReceiveResponse:(NSURLResponse *)response
-{	
+{
     self.dataFromConnection = [NSMutableData data];
 }
 
@@ -171,12 +169,11 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    NSString *responseString = [[[NSString alloc] initWithData:self.dataFromConnection 
-                                                      encoding:NSASCIIStringEncoding] 
-                                autorelease];
+    NSString *responseString = [[NSString alloc] initWithData:self.dataFromConnection
+                                                     encoding:NSASCIIStringEncoding];
+	
     self.dataFromConnection = nil;
-
-	if([responseString isEqualToString:@"YES"])		
+	if([responseString isEqualToString:@"YES"])
 	{
         if(self.onReceiptVerificationSucceeded)
         {
@@ -194,11 +191,9 @@ didReceiveResponse:(NSURLResponse *)response
     }
 }
 
-
 - (void)connection:(NSURLConnection *)connection
   didFailWithError:(NSError *)error
 {
-
     self.dataFromConnection = nil;
     if(self.onReceiptVerificationFailed)
     {
@@ -211,32 +206,32 @@ didReceiveResponse:(NSURLResponse *)response
 
 + (void)connection:(NSURLConnection *)connection
 didReceiveResponse:(NSURLResponse *)response
-{	
+{
     sDataFromConnection = [[NSMutableData alloc] init];
 }
 
 + (void)connection:(NSURLConnection *)connection
     didReceiveData:(NSData *)data
 {
-	[sDataFromConnection appendData:data];
+    [sDataFromConnection appendData:data];
 }
 
 + (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    NSString *responseString = [[[NSString alloc] initWithData:sDataFromConnection 
-                                                      encoding:NSASCIIStringEncoding] 
+    NSString *responseString = [[[NSString alloc] initWithData:sDataFromConnection
+                                                      encoding:NSASCIIStringEncoding]
                                 autorelease];
-	
+    
     [sDataFromConnection release], sDataFromConnection = nil;
-
-	if([responseString isEqualToString:@"YES"])		
-	{
+    
+    if([responseString isEqualToString:@"YES"])
+    {
         if(onReviewRequestVerificationSucceeded)
         {
             onReviewRequestVerificationSucceeded();
             [onReviewRequestVerificationSucceeded release], onReviewRequestVerificationFailed = nil;
         }
-	}
+    }
     else
     {
         if(onReviewRequestVerificationFailed)
@@ -250,10 +245,10 @@ didReceiveResponse:(NSURLResponse *)response
   didFailWithError:(NSError *)error
 {
     [sDataFromConnection release], sDataFromConnection = nil;
-
+    
     if(onReviewRequestVerificationFailed)
     {
-        onReviewRequestVerificationFailed(nil);    
+        onReviewRequestVerificationFailed(nil);
         [onReviewRequestVerificationFailed release], onReviewRequestVerificationFailed = nil;
     }
 }

@@ -40,8 +40,8 @@
 
 @interface MKStoreManager () //private methods and properties
 
-@property (nonatomic, copy) void (^onTransactionCancelled)(NSError *error);
-@property (nonatomic, copy) void (^onTransactionCompleted)(NSString *productId);
+@property (nonatomic, copy) void (^onTransactionCancelled)();
+@property (nonatomic, copy) void (^onTransactionCompleted)(NSString *productId, NSData* receiptData);
 
 @property (nonatomic, copy) void (^onRestoreFailed)(NSError* error);
 @property (nonatomic, copy) void (^onRestoreCompleted)();
@@ -55,7 +55,7 @@
 
 - (void) requestProductData;
 - (void) startVerifyingSubscriptionReceipts;
--(void) rememberPurchaseOfProduct:(NSString*) productIdentifier;
+-(void) rememberPurchaseOfProduct:(NSString*) productIdentifier withReceipt:(NSData*) receiptData;
 -(void) addToQueue:(NSString*) productId;
 @end
 
@@ -453,8 +453,8 @@ static MKStoreManager* _sharedStoreManager;
 }
 
 - (void) buyFeature:(NSString*) featureId
-         onComplete:(void (^)(NSString*)) completionBlock         
-        onCancelled:(void (^)(NSError*)) cancelBlock
+         onComplete:(void (^)(NSString*, NSData*)) completionBlock
+        onCancelled:(void (^)(void)) cancelBlock
 {
     self.onTransactionCompleted = completionBlock;
     self.onTransactionCancelled = cancelBlock;
@@ -579,10 +579,7 @@ static MKStoreManager* _sharedStoreManager;
             if(!receiptData) {
                 if(self.onTransactionCancelled)
                 {
-                    NSString *description = [NSString stringWithFormat:@"Receipt invalid for product %@", productIdentifier];
-                    NSDictionary *uInfo = [NSDictionary dictionaryWithObject:description forKey:NSLocalizedDescriptionKey];
-                    NSError *err = [NSError errorWithDomain:@"com.company.product.malformedPDFDATA" code:0 userInfo:uInfo];
-                    self.onTransactionCancelled(err);
+                    self.onTransactionCancelled(productIdentifier);
                 }
                 else
                 {
@@ -600,15 +597,13 @@ static MKStoreManager* _sharedStoreManager;
             
             [thisProduct verifyReceiptOnComplete:^
              {
-                 [self rememberPurchaseOfProduct:productIdentifier];
-                 if(self.onTransactionCompleted)
-                     self.onTransactionCompleted(productIdentifier);
+                 [self rememberPurchaseOfProduct:productIdentifier withReceipt:receiptData];
              }
                                          onError:^(NSError* error)
              {
                  if(self.onTransactionCancelled)
                  {
-                     self.onTransactionCancelled(error);
+                     self.onTransactionCancelled(productIdentifier);
                  }
                  else
                  {
@@ -618,15 +613,14 @@ static MKStoreManager* _sharedStoreManager;
         }
         else
         {
-            [self rememberPurchaseOfProduct:productIdentifier];
+            [self rememberPurchaseOfProduct:productIdentifier withReceipt:receiptData];
             if(self.onTransactionCompleted)
-                self.onTransactionCompleted(productIdentifier);
-        }                
+                self.onTransactionCompleted(productIdentifier, receiptData);
+        }
     }
 }
 
-
--(void) rememberPurchaseOfProduct:(NSString*) productIdentifier
+-(void) rememberPurchaseOfProduct:(NSString*) productIdentifier withReceipt:(NSData*) receiptData
 {
     NSDictionary *allConsumables = [[self storeKitItems] objectForKey:@"Consumables"];
     if([[allConsumables allKeys] containsObject:productIdentifier])
@@ -636,14 +630,16 @@ static MKStoreManager* _sharedStoreManager;
         NSString* productPurchased = [thisConsumableDict objectForKey:@"Name"];
         
         int oldCount = [[MKStoreManager numberForKey:productPurchased] intValue];
-        int newCount = oldCount + quantityPurchased;	
+        int newCount = oldCount + quantityPurchased;
         
-        [MKStoreManager setObject:[NSNumber numberWithInt:newCount] forKey:productPurchased];        
+        [MKStoreManager setObject:[NSNumber numberWithInt:newCount] forKey:productPurchased];
     }
     else
     {
-        [MKStoreManager setObject:[NSNumber numberWithBool:YES] forKey:productIdentifier];	
+        [MKStoreManager setObject:[NSNumber numberWithBool:YES] forKey:productIdentifier];
     }
+    
+    [MKStoreManager setObject:receiptData forKey:[NSString stringWithFormat:@"%@-receipt", productIdentifier]];
 }
 
 - (void) transactionCanceled: (SKPaymentTransaction *)transaction
@@ -655,7 +651,7 @@ static MKStoreManager* _sharedStoreManager;
 #endif
     
     if(self.onTransactionCancelled)
-        self.onTransactionCancelled(transaction.error);
+        self.onTransactionCancelled();
 }
 
 - (void) failedTransaction: (SKPaymentTransaction *)transaction
@@ -666,7 +662,7 @@ static MKStoreManager* _sharedStoreManager;
 #endif
     [self showAlertWithTitle:@"In-App Purchase Transaction Failed"  message:[transaction.error localizedDescription]];
     if(self.onTransactionCancelled)
-        self.onTransactionCancelled(transaction.error);
+        self.onTransactionCancelled();
 }
 
 @end

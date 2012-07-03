@@ -1,9 +1,8 @@
 //
 //  MKStoreKitConfigs.h
-//  MKStoreKit (Version 4.0)
+//  MKStoreKit (Version 4.2)
 //
 //  Created by Mugunth Kumar on 17-Nov-2010.
-//  Version 4.1
 //  Copyright 2010 Steinlogic. All rights reserved.
 //	File created using Singleton XCode Template by Mugunth Kumar (http://mugunthkumar.com
 //  Permission granted to do anything, commercial/non-commercial with this file apart from removing the line/URL above
@@ -35,7 +34,6 @@
 
 // To avoid making mistakes map plist entries to macros on this page.
 // when you include MKStoreManager in your clss, these macros get defined there
-
 
 #define SERVER_PRODUCT_MODEL (NO)
 #define OWN_SERVER (nil)

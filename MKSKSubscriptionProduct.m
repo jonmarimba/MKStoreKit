@@ -1,11 +1,10 @@
 //
 //  MKSKSubscriptionProduct.m
-//  MKStoreKitDemo
-//  Version 4.1
+//  MKStoreKit (Version 4.2)
 //
 //  Created by Mugunth on 03/07/11.
 //  Copyright 2011 Steinlogic. All rights reserved.
-
+//
 //  Licensing (Zlib)
 //  This software is provided 'as-is', without any express or implied
 //  warranty.  In no event will the authors be held liable for any damages
@@ -24,8 +23,8 @@
 //  3. This notice may not be removed or altered from any source distribution.
 
 //  As a side note on using this code, you might consider giving some credit to me by
-//	1) linking my website from your app's website 
-//	2) or crediting me inside the app's credits page 
+//	1) linking my website from your app's website
+//	2) or crediting me inside the app's credits page
 //	3) or a tweet mentioning @mugunthkumar
 //	4) A paypal donation to mugunth.kumar@gmail.com
 
@@ -41,7 +40,6 @@
 @synthesize theConnection;
 @synthesize dataFromConnection;
 @synthesize productId;
-@synthesize verifiedReceiptDictionary;
 
 -(id) initWithProductId:(NSString*) aProductId subscriptionDays:(int) days
 {
@@ -56,78 +54,82 @@
 
 - (void) verifyReceiptOnComplete:(void (^)(NSNumber*)) completionBlock
                          onError:(void (^)(NSError*)) errorBlock
-{        
+{
     self.onSubscriptionVerificationCompleted = completionBlock;
     self.onSubscriptionVerificationFailed = errorBlock;
     
     NSURL *url = [NSURL URLWithString:kReceiptValidationURL];
 	
-	NSMutableURLRequest *theRequest = [NSMutableURLRequest requestWithURL:url 
-                                                              cachePolicy:NSURLRequestReloadIgnoringCacheData 
+	NSMutableURLRequest *theRequest = [NSMutableURLRequest requestWithURL:url
+                                                              cachePolicy:NSURLRequestReloadIgnoringCacheData
                                                           timeoutInterval:60];
 	
-	[theRequest setHTTPMethod:@"POST"];		
+	[theRequest setHTTPMethod:@"POST"];
 	[theRequest setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
 	
-    NSString *receiptString = [NSString stringWithFormat:@"{\"receipt-data\":\"%@\" \"password\":\"%@\"}", [self.receipt base64EncodedString], kSharedSecret];        
+    NSString *receiptString = [NSString stringWithFormat:@"{\"receipt-data\":\"%@\" \"password\":\"%@\"}", [self.receipt base64EncodedString], kSharedSecret];
     
-	NSString *length = [NSString stringWithFormat:@"%d", [receiptString length]];	
-	[theRequest setValue:length forHTTPHeaderField:@"Content-Length"];	
+	NSString *length = [NSString stringWithFormat:@"%d", [receiptString length]];
+	[theRequest setValue:length forHTTPHeaderField:@"Content-Length"];
 	
 	[theRequest setHTTPBody:[receiptString dataUsingEncoding:NSUTF8StringEncoding]];
 	
-    self.theConnection = [NSURLConnection connectionWithRequest:theRequest delegate:self];    
-    [self.theConnection start];    
+    self.theConnection = [NSURLConnection connectionWithRequest:theRequest delegate:self];
+    [self.theConnection start];
 }
 
 -(BOOL) isSubscriptionActive
-{    
+{
+    if(!self.receipt) return NO;
     if([[self.verifiedReceiptDictionary objectForKey:@"receipt"] objectForKey:@"expires_date"]){
         
-        NSTimeInterval expiresDate = [[[self.verifiedReceiptDictionary objectForKey:@"receipt"] objectForKey:@"expires_date"] doubleValue]/1000.0;        
+        NSTimeInterval expiresDate = [[[self.verifiedReceiptDictionary objectForKey:@"receipt"] objectForKey:@"expires_date"] doubleValue]/1000.0;
         return expiresDate > [[NSDate date] timeIntervalSince1970];
         
 	}else{
-        
-        NSString *purchasedDateString = [[self.verifiedReceiptDictionary objectForKey:@"receipt"] objectForKey:@"purchase_date"];        
+        NSString *purchasedDateString = [[self.verifiedReceiptDictionary objectForKey:@"receipt"] objectForKey:@"purchase_date"];
         if(!purchasedDateString) {
-            NSLog(@"Receipt Dictionary from Apple Server is invalid: %@", verifiedReceiptDictionary);
+            NSLog(@"Receipt Dictionary from Apple Server is invalid: %@", self.verifiedReceiptDictionary);
             return NO;
         }
         NSDateFormatter *df = [[NSDateFormatter alloc] init];
         //2011-07-03 05:31:55 Etc/GMT
-        purchasedDateString = [purchasedDateString stringByReplacingOccurrencesOfString:@" Etc/GMT" withString:@""];    
+        purchasedDateString = [purchasedDateString stringByReplacingOccurrencesOfString:@" Etc/GMT" withString:@""];
         NSLocale *POSIXLocale = [[NSLocale alloc] initWithLocaleIdentifier:@"en_US_POSIX"];
-        [df setLocale:POSIXLocale];     
-        [df setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];            
+        [df setLocale:POSIXLocale];
+        [df setTimeZone:[NSTimeZone timeZoneForSecondsFromGMT:0]];
         [df setDateFormat:@"yyyy-MM-dd HH:mm:ss"];
-        NSDate *purchasedDate = [df dateFromString: purchasedDateString];        
+        NSDate *purchasedDate = [df dateFromString: purchasedDateString];
         int numberOfDays = [purchasedDate timeIntervalSinceNow] / (-86400.0);
         [df release];
         [POSIXLocale release];
-        return (self.subscriptionDays > numberOfDays);        
+        return (self.subscriptionDays > numberOfDays);
     }
 }
-
 
 #pragma mark -
 #pragma mark NSURLConnection delegate
 
 - (void)connection:(NSURLConnection *)connection
 didReceiveResponse:(NSURLResponse *)response
-{	
+{
     self.dataFromConnection = [NSMutableData data];
 }
 
 - (void)connection:(NSURLConnection *)connection
     didReceiveData:(NSData *)data
 {
-	[self.dataFromConnection appendData:data];
+    [self.dataFromConnection appendData:data];
+}
+
+-(NSDictionary*) verifiedReceiptDictionary {
+    
+    return [self.receipt objectFromJSONData];
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    self.verifiedReceiptDictionary = [[[self.dataFromConnection copy] autorelease] objectFromJSONData];                                              
+    self.receipt = [[self.dataFromConnection copy] autorelease];
     if(self.onSubscriptionVerificationCompleted)
     {
         self.onSubscriptionVerificationCompleted([NSNumber numberWithBool:[self isSubscriptionActive]]);
