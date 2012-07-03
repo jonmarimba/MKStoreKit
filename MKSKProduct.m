@@ -169,8 +169,8 @@ didReceiveResponse:(NSURLResponse *)response
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
 {
-    NSString *responseString = [[NSString alloc] initWithData:self.dataFromConnection
-                                                     encoding:NSASCIIStringEncoding];
+    NSString *responseString = [[[NSString alloc] initWithData:self.dataFromConnection
+                                                     encoding:NSASCIIStringEncoding] autorelease];
 	
     self.dataFromConnection = nil;
 	if([responseString isEqualToString:@"YES"])
