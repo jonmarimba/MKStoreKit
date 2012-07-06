@@ -123,8 +123,14 @@ didReceiveResponse:(NSURLResponse *)response
 }
 
 -(NSDictionary*) verifiedReceiptDictionary {
-    
-    return [self.receipt objectFromJSONData];
+
+    NSError *error = nil;
+    NSDictionary *dictionaryJSON = [NSJSONSerialization JSONObjectWithData:self.receipt options:NSJSONReadingAllowFragments error:&error];
+    if (!dictionaryJSON)
+    {
+        NSLog(@"Unable to create JSON from receipt data: %@", [error localizedDescription]);
+    }
+    return dictionaryJSON;
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
