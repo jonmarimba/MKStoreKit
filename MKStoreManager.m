@@ -27,8 +27,8 @@
 //  3. This notice may not be removed or altered from any source distribution.
 
 //  As a side note on using this code, you might consider giving some credit to me by
-//	1) linking my website from your app's website 
-//	2) or crediting me inside the app's credits page 
+//	1) linking my website from your app's website
+//	2) or crediting me inside the app's credits page
 //	3) or a tweet mentioning @mugunthkumar
 //	4) A paypal donation to mugunth.kumar@gmail.com
 
@@ -37,6 +37,12 @@
 #import "MKSKSubscriptionProduct.h"
 #import "MKSKProduct.h"
 #import "Reachability.h"
+
+NSString *kStoreKitItemTypeConsumables = @"Consumables";
+NSString *kStoreKitItemTypeNonConsumables = @"Non-Consumables";
+NSString *kStoreKitItemTypeSubscriptions = @"Subscriptions";
+
+static NSMutableDictionary *skItems;
 
 @interface MKStoreManager () //private methods and properties
 
@@ -55,24 +61,13 @@
 
 - (void) requestProductData;
 - (void) startVerifyingSubscriptionReceipts;
--(void) rememberPurchaseOfProduct:(NSString*) productIdentifier withReceipt:(NSData*) receiptData;
--(void) addToQueue:(NSString*) productId;
+- (void) rememberPurchaseOfProduct:(NSString*) productIdentifier withReceipt:(NSData*) receiptData;
+- (void) addToQueue:(NSString*) productId;
+
 @end
 
 @implementation MKStoreManager
 
-@synthesize purchasableObjects = _purchasableObjects;
-@synthesize storeObserver = _storeObserver;
-@synthesize currentRequest = _currentRequest;
-@synthesize reachability = _reachability;
-@synthesize subscriptionProducts;
-
-@synthesize productsAvailable = _productsAvailable;
-
-@synthesize onTransactionCancelled;
-@synthesize onTransactionCompleted;
-@synthesize onRestoreFailed;
-@synthesize onRestoreCompleted;
 
 static MKStoreManager* _sharedStoreManager;
 
@@ -82,26 +77,7 @@ static MKStoreManager* _sharedStoreManager;
 }
 
 +(BOOL) iCloudAvailable {
-    return NO;
-}
-
-- (void)dealloc 
-{
-    [self.reachability stopNotifier];
-    [_reachability release], _reachability = nil;
-    [_purchasableObjects release], _purchasableObjects = nil;
-    [_storeObserver release], _storeObserver = nil;
-    [onTransactionCancelled release], onTransactionCancelled = nil;
-    [onTransactionCompleted release], onTransactionCompleted = nil;
-    [onRestoreFailed release], onRestoreFailed = nil;
-    [onRestoreCompleted release], onRestoreCompleted = nil;    
-    [super dealloc];
-}
-
-+ (void) dealloc
-{
-	[_sharedStoreManager release], _sharedStoreManager = nil;
-	[super dealloc];
+    return NO; //JS: seems like a bad idea to put this data in iCloud
 }
 
 +(void) setObject:(id) object forKey:(NSString*) key
@@ -116,19 +92,19 @@ static MKStoreManager* _sharedStoreManager;
         objectString = [[[NSString alloc] initWithData:object encoding:NSUTF8StringEncoding] autorelease];
     }
     else if([object isKindOfClass:[NSNumber class]])
-    {       
+    {
         objectString = [(NSNumber*)object stringValue];
     }
     NSError *error = nil;
-    [SFHFKeychainUtils storeUsername:key 
+    [SFHFKeychainUtils storeUsername:key
                          andPassword:objectString
                       forServiceName:@"MKStoreKit"
-                      updateExisting:YES 
+                      updateExisting:YES
                                error:&error];
-    
+
     if(error)
         NSLog(@"%@", [error localizedDescription]);
-    
+
     if([self iCloudAvailable]) {
         [[NSUbiquitousKeyValueStore defaultStore] setObject:objectString forKey:key];
         [[NSUbiquitousKeyValueStore defaultStore] synchronize];
@@ -136,23 +112,23 @@ static MKStoreManager* _sharedStoreManager;
 }
 
 +(id) receiptForKey:(NSString*) key {
-    
+
     NSData *receipt = [MKStoreManager objectForKey:key];
     if(!receipt)
         receipt = [MKStoreManager objectForKey:[NSString stringWithFormat:@"%@-receipt", key]];
-    
+
     return receipt;
 }
 
 +(id) objectForKey:(NSString*) key
 {
     NSError *error = nil;
-    NSObject *object = [SFHFKeychainUtils getPasswordForUsername:key 
-                                                  andServiceName:@"MKStoreKit" 
+    NSObject *object = [SFHFKeychainUtils getPasswordForUsername:key
+                                                  andServiceName:@"MKStoreKit"
                                                            error:&error];
     if(error)
         NSLog(@"%@", [error localizedDescription]);
-    
+
     return object;
 }
 
@@ -174,22 +150,22 @@ static MKStoreManager* _sharedStoreManager;
 	if(!_sharedStoreManager) {
 		static dispatch_once_t oncePredicate;
 		dispatch_once(&oncePredicate, ^{
-			_sharedStoreManager = [[super allocWithZone:nil] init];            
+			_sharedStoreManager = [[super allocWithZone:nil] init];
         });
-        
+
 #if TARGET_IPHONE_SIMULATOR
         NSLog(@"You are running in the Simulator; IAP works only on devices");
 #else
-        _sharedStoreManager = [[self alloc] init];					
+        _sharedStoreManager = [[self alloc] init];
         _sharedStoreManager.purchasableObjects = [NSMutableArray array];
         _sharedStoreManager.storeObserver = [[[MKStoreObserver alloc] init] autorelease];
-        [[SKPaymentQueue defaultQueue] addTransactionObserver:_sharedStoreManager.storeObserver];            
-        
-        
+        [[SKPaymentQueue defaultQueue] addTransactionObserver:_sharedStoreManager.storeObserver];
+
+
         if([self iCloudAvailable])
-            [[NSNotificationCenter defaultCenter] addObserver:_sharedStoreManager 
-                                                     selector:@selector(updateFromiCloud:) 
-                                                         name:NSUbiquitousKeyValueStoreDidChangeExternallyNotification 
+            [[NSNotificationCenter defaultCenter] addObserver:_sharedStoreManager
+                                                     selector:@selector(updateFromiCloud:)
+                                                         name:NSUbiquitousKeyValueStoreDidChangeExternallyNotification
                                                        object:nil];
         [_sharedStoreManager updateNetworkStatus];
 #endif
@@ -199,7 +175,7 @@ static MKStoreManager* _sharedStoreManager;
 
 - (id)copyWithZone:(NSZone *)zone
 {
-    return self;	
+    return self;
 }
 
 #pragma mark internet Connection Status
@@ -209,9 +185,9 @@ static MKStoreManager* _sharedStoreManager;
     {
         [self setReachability:[Reachability reachabilityForInternetConnection]];
         // Observe the kNetworkReachabilityChangedNotification. When that notification is posted, the
-        // method "reachabilityChanged" will be called. 
-        [[NSNotificationCenter defaultCenter] addObserver:self 
-                                                 selector:@selector(reachabilityChanged:) 
+        // method "reachabilityChanged" will be called.
+        [[NSNotificationCenter defaultCenter] addObserver:self
+                                                 selector:@selector(reachabilityChanged:)
                                                      name:kReachabilityChangedNotification
                                                    object:nil];
         [self.reachability startNotifier];
@@ -229,8 +205,8 @@ static MKStoreManager* _sharedStoreManager;
 }
 
 - (id)retain
-{	
-    return self;	
+{
+    return self;
 }
 
 - (unsigned)retainCount
@@ -245,25 +221,59 @@ static MKStoreManager* _sharedStoreManager;
 
 - (id)autorelease
 {
-    return self;	
+    return self;
 }
 
 #pragma mark Internal MKStoreKit functions
 
--(NSDictionary*) storeKitItems
+-(NSMutableDictionary*) storeKitItems
 {
     return [[self class] storeKitItems];
 }
 
-+(NSDictionary *)storeKitItems
++(NSMutableDictionary *)storeKitItems
 {
-    static NSDictionary *skItems;
 	if (!skItems)
 	{
-		skItems = [[NSDictionary alloc] initWithContentsOfFile:[[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
-                                                                @"MKStoreKitConfigs.plist"]];
+        NSString *plistPath = [[[NSBundle mainBundle] resourcePath] stringByAppendingPathComponent:
+                               @"MKStoreKitConfigs.plist"];
+        if ([[NSFileManager defaultManager] fileExistsAtPath:plistPath])
+        {
+            skItems = [[NSMutableDictionary alloc] initWithContentsOfFile:plistPath];
+        }
+        else
+        {
+            skItems = [[NSMutableDictionary alloc] init];
+        }
 	}
     return skItems;
+}
+
+//removes all store kit items and reloads the plist, if any.
++ (void)resetStoreKitItemsToDefault;
+{
+    [skItems release]; skItems = nil;
+    [self storeKitItems];
+}
+
+//TODO: JS: Implementation of these
+//+ (void)addConsumableStoreKitItem:(NSString *)itemID withName:(NSString *)name quantity:(NSUInteger)count;
+//{
+//    NSAssert(NO, @"Not implemented");
+//}
+//
+//+ (void)addSubscriptionStoreKitItem:(NSString *)itemID withSubscriptionDays:(NSUInteger)identifier;
+//{
+//    NSAssert(NO, @"Not implemented");
+//}
+
++ (void)addNonConsumableStoreKitItem:(NSString *)itemID;
+{
+    NSMutableDictionary *storeKitItems = [self storeKitItems];
+    NSMutableSet *nonConsumables = [NSMutableSet setWithArray:[self nonConsumables]];
+    [nonConsumables addObject:itemID];
+    NSArray *nonConsumablesReplacementArray = [nonConsumables allObjects];
+    [storeKitItems setValue:nonConsumablesReplacementArray forKey:kStoreKitItemTypeNonConsumables];
 }
 
 - (void) restorePreviousTransactionsOnComplete:(void (^)(void)) completionBlock
@@ -271,7 +281,7 @@ static MKStoreManager* _sharedStoreManager;
 {
     self.onRestoreCompleted = completionBlock;
     self.onRestoreFailed = errorBlock;
-    
+
 	[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
 }
 
@@ -289,47 +299,56 @@ static MKStoreManager* _sharedStoreManager;
     self.onRestoreFailed = nil;
 }
 
++(NSArray *)consumables
+{
+    return [[[self storeKitItems] objectForKey:kStoreKitItemTypeConsumables] allKeys];
+}
+
++(NSArray *)nonConsumables
+{
+    return [[self storeKitItems] objectForKey:kStoreKitItemTypeNonConsumables];
+}
+
++(NSArray *)subscriptions
+{
+    return [[[self storeKitItems] objectForKey:@"Subscriptions"] allKeys];
+}
+
 -(void) requestProductData
 {
     if (![self currentRequest])
     {
-        
+
         NSMutableArray *productsArray = [NSMutableArray array];
-        NSArray *consumables = [[[self storeKitItems] objectForKey:@"Consumables"] allKeys];
-        NSArray *nonConsumables = [[self storeKitItems] objectForKey:@"Non-Consumables"];
-        NSArray *subscriptions = [[[self storeKitItems] objectForKey:@"Subscriptions"] allKeys];
-        
-        [productsArray addObjectsFromArray:consumables];
-        [productsArray addObjectsFromArray:nonConsumables];
-        [productsArray addObjectsFromArray:subscriptions];
-        
+
+        [productsArray addObjectsFromArray:[[self class] consumables]];
+        [productsArray addObjectsFromArray:[[self class] nonConsumables]];
+        [productsArray addObjectsFromArray:[[self class] subscriptions]];
+
         SKProductsRequest *request= [[SKProductsRequest alloc] initWithProductIdentifiers:[NSSet setWithArray:productsArray]];
         request.delegate = self;
         [self setCurrentRequest:request];
-        
+
         [request start];
     }
 }
 
 + (BOOL) removeAllKeychainData {
     NSMutableArray *productsArray = [NSMutableArray array];
-    NSArray *consumables = [[[self storeKitItems] objectForKey:@"Consumables"] allKeys];
-    NSArray *nonConsumables = [[self storeKitItems] objectForKey:@"Non-Consumables"];
-    NSArray *subscriptions = [[[self storeKitItems] objectForKey:@"Subscriptions"] allKeys];
-    
-    [productsArray addObjectsFromArray:consumables];
-    [productsArray addObjectsFromArray:nonConsumables];
-    [productsArray addObjectsFromArray:subscriptions];
-    
+
+    [productsArray addObjectsFromArray:[self consumables]];
+    [productsArray addObjectsFromArray:[self nonConsumables]];
+    [productsArray addObjectsFromArray:[self subscriptions]];
+
     int itemCount = productsArray.count;
     NSError *error = nil;
-    
-    //loop through all the saved keychain data and remove it    
+
+    //loop through all the saved keychain data and remove it
     for (int i = 0; i < itemCount; i++ ) {
         [SFHFKeychainUtils deleteItemForUsername:[productsArray objectAtIndex:i] andServiceName:@"MKStoreKit" error:&error];
     }
     if (!error) {
-        return YES; 
+        return YES;
     }
     else {
         return NO;
@@ -342,41 +361,41 @@ static MKStoreManager* _sharedStoreManager;
 	[mutablePurchasableObjects addObjectsFromArray:response.products];
     self.purchasableObjects = [NSArray arrayWithArray:mutablePurchasableObjects];
     [mutablePurchasableObjects release];
-#ifndef NDEBUG	
+#ifndef NDEBUG
 	for(int i=0;i<[self.purchasableObjects count];i++)
-	{		
+	{
 		SKProduct *product = [self.purchasableObjects objectAtIndex:i];
 		NSLog(@"Feature: %@, Cost: %f, ID: %@",[product localizedTitle],
 			  [[product price] doubleValue], [product productIdentifier]);
 	}
-	
+
 	for(NSString *invalidProduct in response.invalidProductIdentifiers)
 		NSLog(@"Problem in iTunes connect configuration for product: %@", invalidProduct);
 #endif
 
 	[self setCurrentRequest:nil];
 	[self setProductsAvailable:YES];
-    [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification 
+    [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification
                                                         object:[NSNumber numberWithBool:self.productsAvailable]];
 }
 
 - (void)request:(SKRequest *)request didFailWithError:(NSError *)error
 {
     [self setCurrentRequest:nil];
-	[self setProductsAvailable:NO];	
+	[self setProductsAvailable:NO];
 
-    [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification 
+    [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification
                                                         object:[NSNumber numberWithBool:self.productsAvailable]];
 }
 
 // call this function to check if the user has already purchased your feature
 + (BOOL) isFeaturePurchased:(NSString*) featureId
-{    
+{
     return [[MKStoreManager numberForKey:featureId] boolValue];
 }
 
 - (BOOL) isSubscriptionActive:(NSString*) featureId
-{    
+{
     MKSKSubscriptionProduct *subscriptionProduct = [self.subscriptionProducts objectForKey:featureId];
     return [subscriptionProduct isSubscriptionActive];
 }
@@ -390,17 +409,17 @@ static MKStoreManager* _sharedStoreManager;
 	for(int i=0;i<[self.purchasableObjects count];i++)
 	{
 		SKProduct *product = [self.purchasableObjects objectAtIndex:i];
-		
+
 		NSNumberFormatter *numberFormatter = [[NSNumberFormatter alloc] init];
 		[numberFormatter setFormatterBehavior:NSNumberFormatterBehavior10_4];
 		[numberFormatter setNumberStyle:NSNumberFormatterCurrencyStyle];
 		[numberFormatter setLocale:product.priceLocale];
 		NSString *formattedString = [numberFormatter stringFromNumber:product.price];
 		[numberFormatter release];
-		
+
 		// you might probably need to change this line to suit your UI needs
 		NSString *description = [NSString stringWithFormat:@"%@ (%@)",[product localizedTitle], formattedString];
-		
+
 #ifndef NDEBUG
 		NSLog(@"Product %d - %@", i, description);
 #endif
@@ -409,55 +428,55 @@ static MKStoreManager* _sharedStoreManager;
 	return [NSArray arrayWithArray:[productDescriptions autorelease]];
 }
 
-/*Call this function to get a dictionary with all prices of all your product identifers 
- 
- For example, 
- 
+/*Call this function to get a dictionary with all prices of all your product identifers
+
+ For example,
+
  NSDictionary *prices = [[MKStoreManager sharedManager] pricesDictionary];
- 
+
  NSString *upgradePrice = [prices objectForKey:@"com.mycompany.upgrade"]
- 
+
  */
 - (NSDictionary *)pricesDictionary {
     NSMutableDictionary *priceDict = [NSMutableDictionary dictionary];
 	for(int i=0;i<[self.purchasableObjects count];i++)
 	{
 		SKProduct *product = [self.purchasableObjects objectAtIndex:i];
-		
+
 		NSNumberFormatter *numberFormatter = [[NSNumberFormatter alloc] init];
 		[numberFormatter setFormatterBehavior:NSNumberFormatterBehavior10_4];
 		[numberFormatter setNumberStyle:NSNumberFormatterCurrencyStyle];
 		[numberFormatter setLocale:product.priceLocale];
 		NSString *formattedString = [numberFormatter stringFromNumber:product.price];
 		[numberFormatter release];
-        
+
         NSString *priceString = [NSString stringWithFormat:@"%@", formattedString];
-        [priceDict setObject:priceString forKey:product.productIdentifier]; 
-        
+        [priceDict setObject:priceString forKey:product.productIdentifier];
+
     }
     return [NSDictionary dictionaryWithDictionary:priceDict];
 }
 
 -(void) showAlertWithTitle:(NSString*) title message:(NSString*) message {
-    
+
 #if TARGET_OS_IPHONE
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:title
                                                     message:message
-                                                   delegate:nil 
+                                                   delegate:nil
                                           cancelButtonTitle:NSLocalizedString(@"Dismiss", @"")
                                           otherButtonTitles:nil];
-    [alert show];   
+    [alert show];
     [alert autorelease];
 #elif TARGET_OS_MAC
     NSAlert *alert = [[NSAlert alloc] init];
     [alert addButtonWithTitle:NSLocalizedString(@"Dismiss", @"")];
-    
+
     [alert setMessageText:title];
-    [alert setInformativeText:message];             
+    [alert setInformativeText:message];
     [alert setAlertStyle:NSInformationalAlertStyle];
-    
+
     [alert runModal];
-    
+
 #endif
 }
 
@@ -487,9 +506,9 @@ static MKStoreManager* _sharedStoreManager;
 - (BOOL) canConsumeProduct:(NSString*) productIdentifier
 {
 	int count = [[MKStoreManager numberForKey:productIdentifier] intValue];
-	
+
 	return (count > 0);
-	
+
 }
 
 - (BOOL) canConsumeProduct:(NSString*) productIdentifier quantity:(int) quantity
@@ -505,83 +524,83 @@ static MKStoreManager* _sharedStoreManager;
 	{
 		return NO;
 	}
-	else 
+	else
 	{
 		count -= quantity;
         [MKStoreManager setObject:[NSNumber numberWithInt:count] forKey:productIdentifier];
 		return YES;
-	}	
+	}
 }
 
 - (void) startVerifyingSubscriptionReceipts
 {
     NSDictionary *subscriptions = [[self storeKitItems] objectForKey:@"Subscriptions"];
-    
+
     self.subscriptionProducts = [NSMutableDictionary dictionary];
     for(NSString *productId in [subscriptions allKeys])
     {
-        MKSKSubscriptionProduct *product = [[[MKSKSubscriptionProduct alloc] initWithProductId:productId subscriptionDays:[[subscriptions objectForKey:productId] intValue]] autorelease];        
+        MKSKSubscriptionProduct *product = [[[MKSKSubscriptionProduct alloc] initWithProductId:productId subscriptionDays:[[subscriptions objectForKey:productId] intValue]] autorelease];
         product.receipt = [MKStoreManager dataForKey:productId]; // cached receipt
-        
+
         if(product.receipt)
         {
             [product verifyReceiptOnComplete:^(NSNumber* isActive)
              {
                  if([isActive boolValue] == NO)
                  {
-                     [[NSNotificationCenter defaultCenter] postNotificationName:kSubscriptionsInvalidNotification 
+                     [[NSNotificationCenter defaultCenter] postNotificationName:kSubscriptionsInvalidNotification
                                                                          object:product.productId];
-                     
+
                      NSLog(@"Subscription: %@ is inactive", product.productId);
                  }
                  else
                  {
-                     NSLog(@"Subscription: %@ is active", product.productId);                     
+                     NSLog(@"Subscription: %@ is active", product.productId);
                  }
              }
                                      onError:^(NSError* error)
              {
-                 NSLog(@"Unable to check for subscription validity right now");                                      
-             }]; 
+                 NSLog(@"Unable to check for subscription validity right now");
+             }];
         }
-        
+
         [self.subscriptionProducts setObject:product forKey:productId];
     }
 }
 
 -(NSData*) receiptFromBundle {
-    
+
     return nil;
 }
 
 #pragma mark In-App purchases callbacks
 // In most cases you don't have to touch these methods
--(void) provideContent: (NSString*) productIdentifier 
+-(void) provideContent: (NSString*) productIdentifier
             forReceipt:(NSData*) receiptData
 {
     MKSKSubscriptionProduct *subscriptionProduct = [self.subscriptionProducts objectForKey:productIdentifier];
     if(subscriptionProduct)
-    {                
+    {
         // MAC In App Purchases can never be a subscription product (at least as on Dec 2011)
         // so this can be safely ignored.
-        
+
         subscriptionProduct.receipt = receiptData;
         [subscriptionProduct verifyReceiptOnComplete:^(NSNumber* isActive)
          {
-             [[NSNotificationCenter defaultCenter] postNotificationName:kSubscriptionsPurchasedNotification 
+             [[NSNotificationCenter defaultCenter] postNotificationName:kSubscriptionsPurchasedNotification
                                                                  object:productIdentifier];
-             
-             [MKStoreManager setObject:receiptData forKey:productIdentifier];             
+
+             [MKStoreManager setObject:receiptData forKey:productIdentifier];
          }
                                              onError:^(NSError* error)
          {
              NSLog(@"%@", [error description]);
          }];
-    }        
+    }
     else
     {
         if(!receiptData) {
-            
+
             // could be a mac in app receipt.
             // read from receipts and verify here
             receiptData = [self receiptFromBundle];
@@ -596,14 +615,14 @@ static MKStoreManager* _sharedStoreManager;
                 }
             }
         }
-        
+
         if(OWN_SERVER && SERVER_PRODUCT_MODEL)
         {
             // ping server and get response before serializing the product
             // this is a blocking call to post receipt data to your server
             // it should normally take a couple of seconds on a good 3G connection
             MKSKProduct *thisProduct = [[[MKSKProduct alloc] initWithProductId:productIdentifier receiptData:receiptData] autorelease];
-            
+
             [thisProduct verifyReceiptOnComplete:^
              {
                  [self rememberPurchaseOfProduct:productIdentifier withReceipt:receiptData];
@@ -618,7 +637,7 @@ static MKStoreManager* _sharedStoreManager;
                  {
                      NSLog(@"The receipt could not be verified");
                  }
-             }];            
+             }];
         }
         else
         {
@@ -637,28 +656,28 @@ static MKStoreManager* _sharedStoreManager;
         NSDictionary *thisConsumableDict = [allConsumables objectForKey:productIdentifier];
         int quantityPurchased = [[thisConsumableDict objectForKey:@"Count"] intValue];
         NSString* productPurchased = [thisConsumableDict objectForKey:@"Name"];
-        
+
         int oldCount = [[MKStoreManager numberForKey:productPurchased] intValue];
         int newCount = oldCount + quantityPurchased;
-        
+
         [MKStoreManager setObject:[NSNumber numberWithInt:newCount] forKey:productPurchased];
     }
     else
     {
         [MKStoreManager setObject:[NSNumber numberWithBool:YES] forKey:productIdentifier];
     }
-    
+
     [MKStoreManager setObject:receiptData forKey:[NSString stringWithFormat:@"%@-receipt", productIdentifier]];
 }
 
 - (void) transactionCanceled: (SKPaymentTransaction *)transaction
 {
-    
+
 #ifndef NDEBUG
 	NSLog(@"User cancelled transaction: %@", [transaction description]);
     NSLog(@"error: %@", transaction.error);
 #endif
-    
+
     if(self.onTransactionCancelled)
         self.onTransactionCancelled();
 }
@@ -667,11 +686,41 @@ static MKStoreManager* _sharedStoreManager;
 {
 #ifndef NDEBUG
     NSLog(@"Failed transaction: %@", [transaction description]);
-    NSLog(@"error: %@", transaction.error);    
+    NSLog(@"error: %@", transaction.error);
 #endif
     [self showAlertWithTitle:@"In-App Purchase Transaction Failed"  message:[transaction.error localizedDescription]];
     if(self.onTransactionCancelled)
         self.onTransactionCancelled();
+}
+
+@synthesize purchasableObjects = _purchasableObjects;
+@synthesize storeObserver = _storeObserver;
+@synthesize currentRequest = _currentRequest;
+@synthesize reachability = _reachability;
+@synthesize subscriptionProducts;
+@synthesize productsAvailable = _productsAvailable;
+@synthesize onTransactionCancelled;
+@synthesize onTransactionCompleted;
+@synthesize onRestoreFailed;
+@synthesize onRestoreCompleted;
+
+- (void)dealloc
+{
+    [self.reachability stopNotifier];
+    [_reachability release], _reachability = nil;
+    [_purchasableObjects release], _purchasableObjects = nil;
+    [_storeObserver release], _storeObserver = nil;
+    [onTransactionCancelled release], onTransactionCancelled = nil;
+    [onTransactionCompleted release], onTransactionCompleted = nil;
+    [onRestoreFailed release], onRestoreFailed = nil;
+    [onRestoreCompleted release], onRestoreCompleted = nil;
+    [super dealloc];
+}
+
++ (void) dealloc
+{
+	[_sharedStoreManager release], _sharedStoreManager = nil;
+	[super dealloc];
 }
 
 @end

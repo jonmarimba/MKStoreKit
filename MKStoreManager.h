@@ -55,11 +55,28 @@
 @property (nonatomic, assign, readonly) BOOL fetchingProducts;
 @property (nonatomic, assign, readonly, getter=areProductsAvailable) BOOL productsAvailable;
 
++ (NSArray *)consumables;
++ (NSArray *)nonConsumables;
++ (NSArray *)subscriptions;
+
 // These are the methods you will be using in your app
 + (MKStoreManager*)sharedManager;
 
+// Adding items at runtime.
+// see the documentation at http://blog.mugunthkumar.com/coding/mkstorekit-4-0-supporting-auto-renewable-subscriptions/ for more info.
+
+//removes all store kit items
++ (void)resetStoreKitItemsToDefault;
+
++ (void)addNonConsumableStoreKitItem:(NSString *)itemID;
+//TODO: JS: implement these two.
+//+ (void)addConsumableStoreKitItem:(NSString *)itemID withName:(NSString *)name quantity:(NSUInteger)count;
+//+ (void)addSubscriptionStoreKitItem:(NSString *)itemID withSubscriptionDays:(NSUInteger)identifier;
+
+
 // this is a static method, since it doesn't require the store manager to be initialized prior to calling
-+ (BOOL) isFeaturePurchased:(NSString*) featureId; 
++ (BOOL) isFeaturePurchased:(NSString*) featureId;
+
 //returns a dictionary with all prices for identifiers
 - (NSDictionary *)pricesDictionary;
 - (NSArray*) purchasableObjectsDescription;
@@ -77,6 +94,7 @@
 - (BOOL) canConsumeProduct:(NSString*) productName quantity:(int) quantity;
 - (BOOL) consumeProduct:(NSString*) productName quantity:(int) quantity;
 - (BOOL) isSubscriptionActive:(NSString*) featureId;
+
 //for testing proposes you can use this method to remove all the saved keychain data (saved purchases, etc.)
 + (BOOL) removeAllKeychainData;
 
