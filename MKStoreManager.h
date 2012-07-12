@@ -52,7 +52,7 @@
 @interface MKStoreManager : NSObject<SKProductsRequestDelegate>
 
 @property (nonatomic, assign, readonly) BOOL fetchingProducts;
-@property (nonatomic, assign, readonly, getter=areProductsAvailable) BOOL productsAvailable;
+@property (nonatomic, assign, readonly) BOOL productsAvailable;
 
 + (NSArray *)consumables;
 + (NSArray *)nonConsumables;

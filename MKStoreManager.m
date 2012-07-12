@@ -57,7 +57,7 @@ static NSMutableDictionary *skItems;
 @property (nonatomic, retain) Reachability *reachability;
 @property (nonatomic, retain) MKStoreObserver *storeObserver;
 @property (nonatomic, retain) SKProductsRequest *currentRequest;
-@property (nonatomic, assign, getter=areProductsAvailable) BOOL productsAvailable;
+@property (nonatomic, assign) BOOL productsAvailable;
 
 - (void) requestProductData;
 - (void) startVerifyingSubscriptionReceipts;
@@ -374,7 +374,7 @@ static MKStoreManager* _sharedStoreManager;
 #endif
 
 	[self setCurrentRequest:nil];
-	[self setProductsAvailable:YES];
+	[self setProductsAvailable:([self.purchasableObjects count] > 0)];
     [[NSNotificationCenter defaultCenter] postNotificationName:kProductFetchedNotification
                                                         object:[NSNumber numberWithBool:self.productsAvailable]];
 }
@@ -491,15 +491,36 @@ static MKStoreManager* _sharedStoreManager;
 
 -(void) addToQueue:(NSString*) productId
 {
-    if ([SKPaymentQueue canMakePayments])
+    static const NSUInteger addQueueMaxRetries = 6;
+    static NSUInteger addQueueRetries;
+    if ([SKPaymentQueue canMakePayments] && addQueueRetries < addQueueMaxRetries)
 	{
-		SKPayment *payment = [SKPayment paymentWithProductIdentifier:productId];
-		[[SKPaymentQueue defaultQueue] addPayment:payment];
+        if ([self productsAvailable])
+        {
+            NSArray *purchableObjects = [self purchasableObjects];
+            purchableObjects = [purchableObjects filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"SELF.productIdentifier = %@", productId]];
+            SKPayment *payment = nil;
+            if ([purchableObjects count])
+            {
+                SKProduct *product = [purchableObjects objectAtIndex:0];
+                payment = [SKPayment paymentWithProduct:product];
+                [[SKPaymentQueue defaultQueue] addPayment:payment];
+            }
+        }
+        else //retry
+        {
+            addQueueRetries++;
+            [self requestProductData];
+            [self performSelector:@selector(addToQueue:) withObject:productId afterDelay:addQueueRetries*2];
+        }
 	}
 	else
 	{
         [self showAlertWithTitle:NSLocalizedString(@"In-App Purchasing disabled", @"")
-                         message:NSLocalizedString(@"Check your parental control settings and try again later", @"")];
+                         message:NSLocalizedString(@"Check your parental control settings and / or your internet connection and try again.", @"")];
+        addQueueRetries = 0;
+        [NSObject cancelPreviousPerformRequestsWithTarget:self];
+        self.onTransactionCancelled();
 	}
 }
 
@@ -707,6 +728,8 @@ static MKStoreManager* _sharedStoreManager;
 - (void)dealloc
 {
     [self.reachability stopNotifier];
+    [NSObject cancelPreviousPerformRequestsWithTarget:self];
+    
     [_reachability release], _reachability = nil;
     [_purchasableObjects release], _purchasableObjects = nil;
     [_storeObserver release], _storeObserver = nil;
