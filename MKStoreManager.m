@@ -486,7 +486,14 @@ static MKStoreManager* _sharedStoreManager;
 {
     self.onTransactionCompleted = completionBlock;
     self.onTransactionCancelled = cancelBlock;
+#if TARGET_IPHONE_SIMULATOR
+    NSLog(@"On Simulator.  Simulating purchase of %@", featureId);
+    [self rememberPurchaseOfProduct:featureId withReceipt:nil];
+    if(self.onTransactionCompleted)
+        self.onTransactionCompleted(featureId, nil);
+#else
     [self addToQueue:featureId];
+#endif
 }
 
 -(void) addToQueue:(NSString*) productId
@@ -687,8 +694,10 @@ static MKStoreManager* _sharedStoreManager;
     {
         [MKStoreManager setObject:[NSNumber numberWithBool:YES] forKey:productIdentifier];
     }
-
-    [MKStoreManager setObject:receiptData forKey:[NSString stringWithFormat:@"%@-receipt", productIdentifier]];
+    if (receiptData && [receiptData length])
+    {
+        [MKStoreManager setObject:receiptData forKey:[NSString stringWithFormat:@"%@-receipt", productIdentifier]];
+    }
 }
 
 - (void) transactionCanceled: (SKPaymentTransaction *)transaction
