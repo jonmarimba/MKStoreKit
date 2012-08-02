@@ -44,6 +44,10 @@ NSString *kStoreKitItemTypeSubscriptions = @"Subscriptions";
 
 static NSMutableDictionary *skItems;
 
+//runtime cache of keys and values to avoid (slow) multiple retrievals from keychain
+static NSMutableDictionary *miniCache;
+
+
 @interface MKStoreManager () //private methods and properties
 
 @property (nonatomic, copy) void (^onTransactionCancelled)();
@@ -76,6 +80,11 @@ static MKStoreManager* _sharedStoreManager;
     return [self currentRequest] != nil;
 }
 
++(void)initialize
+{
+    miniCache = [[NSMutableDictionary alloc] init];
+}
+
 +(BOOL) iCloudAvailable {
     return NO; //JS: seems like a bad idea to put this data in iCloud
 }
@@ -101,6 +110,8 @@ static MKStoreManager* _sharedStoreManager;
                       forServiceName:@"MKStoreKit"
                       updateExisting:YES
                                error:&error];
+    
+    [miniCache setValue:objectString forKey:key];
 
     if(error)
         NSLog(@"%@", [error localizedDescription]);
@@ -122,12 +133,28 @@ static MKStoreManager* _sharedStoreManager;
 
 +(id) objectForKey:(NSString*) key
 {
-    NSError *error = nil;
-    NSObject *object = [SFHFKeychainUtils getPasswordForUsername:key
-                                                  andServiceName:@"MKStoreKit"
-                                                           error:&error];
-    if(error)
-        NSLog(@"%@", [error localizedDescription]);
+    NSObject *object = [miniCache objectForKey:key];
+    if (!object)
+    {
+        NSError *error = nil;
+        object = [SFHFKeychainUtils getPasswordForUsername:key
+                                                      andServiceName:@"MKStoreKit"
+                                                               error:&error];
+        if(!object && error)
+            NSLog(@"%@", [error localizedDescription]);
+
+        if (!object)
+        {
+            object = [NSNull null];
+        }
+
+        [miniCache setValue:object forKey:key];
+    }
+
+    if ([object isEqual:[NSNull null]])
+    {
+        object = nil;
+    }
 
     return object;
 }
@@ -345,7 +372,9 @@ static MKStoreManager* _sharedStoreManager;
 
     //loop through all the saved keychain data and remove it
     for (int i = 0; i < itemCount; i++ ) {
-        [SFHFKeychainUtils deleteItemForUsername:[productsArray objectAtIndex:i] andServiceName:@"MKStoreKit" error:&error];
+        NSString *key = [productsArray objectAtIndex:i];
+        [SFHFKeychainUtils deleteItemForUsername:key andServiceName:@"MKStoreKit" error:&error];
+        [miniCache removeObjectForKey:key];
     }
     if (!error) {
         return YES;
@@ -738,7 +767,7 @@ static MKStoreManager* _sharedStoreManager;
 {
     [self.reachability stopNotifier];
     [NSObject cancelPreviousPerformRequestsWithTarget:self];
-    
+
     [_reachability release], _reachability = nil;
     [_purchasableObjects release], _purchasableObjects = nil;
     [_storeObserver release], _storeObserver = nil;
