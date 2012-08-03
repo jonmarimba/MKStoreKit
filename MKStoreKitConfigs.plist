@@ -4,10 +4,7 @@
 <dict>
 	<key>Non-Consumables</key>
 	<array>
-		<string>IAP_TEST_SPANISH</string>
-		<string>IAP_TEST_SPANISH_ESSENTIAL</string>
-		<string>IAP_TEST_SPANISH_INTERMEDIATE_ADVANCED</string>
-		<string>IAP_TEST_SPANISH_ADVANCED_LAST_TWO</string>
+		<string>9780307942968</string>
 	</array>
 </dict>
 </plist>
