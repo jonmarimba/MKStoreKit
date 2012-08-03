@@ -45,7 +45,7 @@ NSString *kStoreKitItemTypeSubscriptions = @"Subscriptions";
 static NSMutableDictionary *skItems;
 
 //runtime cache of keys and values to avoid (slow) multiple retrievals from keychain
-static NSMutableDictionary *miniCache;
+static NSMutableDictionary *keychainCache;
 
 
 @interface MKStoreManager () //private methods and properties
@@ -82,7 +82,7 @@ static MKStoreManager* _sharedStoreManager;
 
 +(void)initialize
 {
-    miniCache = [[NSMutableDictionary alloc] init];
+    keychainCache = [[NSMutableDictionary alloc] init];
 }
 
 +(BOOL) iCloudAvailable {
@@ -111,7 +111,7 @@ static MKStoreManager* _sharedStoreManager;
                       updateExisting:YES
                                error:&error];
     
-    [miniCache setValue:objectString forKey:key];
+    [keychainCache setValue:objectString forKey:key];
 
     if(error)
         NSLog(@"%@", [error localizedDescription]);
@@ -133,7 +133,7 @@ static MKStoreManager* _sharedStoreManager;
 
 +(id) objectForKey:(NSString*) key
 {
-    NSObject *object = [miniCache objectForKey:key];
+    NSObject *object = [keychainCache objectForKey:key];
     if (!object)
     {
         NSError *error = nil;
@@ -148,7 +148,7 @@ static MKStoreManager* _sharedStoreManager;
             object = [NSNull null];
         }
 
-        [miniCache setValue:object forKey:key];
+        [keychainCache setValue:object forKey:key];
     }
 
     if ([object isEqual:[NSNull null]])
@@ -374,7 +374,7 @@ static MKStoreManager* _sharedStoreManager;
     for (int i = 0; i < itemCount; i++ ) {
         NSString *key = [productsArray objectAtIndex:i];
         [SFHFKeychainUtils deleteItemForUsername:key andServiceName:@"MKStoreKit" error:&error];
-        [miniCache removeObjectForKey:key];
+        [keychainCache removeObjectForKey:key];
     }
     if (!error) {
         return YES;
