@@ -25,7 +25,8 @@
 - (void) failedTransaction: (SKPaymentTransaction *)transaction;
 
 - (void) provideContent: (NSString*) productIdentifier 
-             forReceipt: (NSData*) recieptData;
+             forReceipt: (NSData*) recieptData
+  originalTransactionID: (NSString*) originalTransactionID;
 @end
 
 @implementation MKStoreObserver
@@ -78,11 +79,14 @@
 - (void) completeTransaction: (SKPaymentTransaction *)transaction
 {			
 #if TARGET_OS_IPHONE
+  NSString *originalXactionID = [[transaction originalTransaction] transactionIdentifier] ? [[transaction originalTransaction] transactionIdentifier] : [transaction transactionIdentifier];
   [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier 
-                                      forReceipt:transaction.transactionReceipt];	
+                                      forReceipt:transaction.transactionReceipt
+                           originalTransactionID:originalXactionID];
 #elif TARGET_OS_MAC
   [[MKStoreManager sharedManager] provideContent:transaction.payment.productIdentifier 
-                                      forReceipt:nil];	
+                                      forReceipt:nil
+                           originalTransactionID:originalXactionID];
 #endif
   
   [[SKPaymentQueue defaultQueue] finishTransaction: transaction];	
@@ -92,10 +96,13 @@
 {	
 #if TARGET_OS_IPHONE
   [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier
-                                      forReceipt:transaction.transactionReceipt];
+                                      forReceipt:transaction.transactionReceipt
+                           originalTransactionID:transaction.originalTransaction.transactionIdentifier];
 #elif TARGET_OS_MAC
   [[MKStoreManager sharedManager] provideContent: transaction.originalTransaction.payment.productIdentifier
-                                      forReceipt:nil];
+                                      forReceipt:nil
+                           originalTransactionID:transaction.originalTransaction.transactionIdentifier];
+
 #endif
 	
   [[SKPaymentQueue defaultQueue] finishTransaction: transaction];	

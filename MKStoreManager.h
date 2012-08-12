@@ -75,6 +75,9 @@
 
 // this is a static method, since it doesn't require the store manager to be initialized prior to calling
 + (BOOL) isFeaturePurchased:(NSString*) featureId;
+// iff the feature has been purchased and we have the transaction ID stored.
+// if it's not stored, re-run the transaction and it should show-up.
++ (NSString*)transactionIDForPurchasedFeature:(NSString*) featureId;
 
 //returns a dictionary with all prices for identifiers
 - (NSDictionary *)pricesDictionary;

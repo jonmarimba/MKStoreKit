@@ -630,11 +630,22 @@ static MKStoreManager* _sharedStoreManager;
     return nil;
 }
 
++ (NSString*)transactionIDForPurchasedFeature:(NSString*) featureId;
+{
+    return [MKStoreManager objectForKey:[NSString stringWithFormat:@"%@-transactionID", featureId]];
+}
+
 #pragma mark In-App purchases callbacks
 // In most cases you don't have to touch these methods
 -(void) provideContent: (NSString*) productIdentifier
-            forReceipt:(NSData*) receiptData
+            forReceipt: (NSData*) receiptData
+ originalTransactionID: (NSString*) originalTransactionID;
 {
+    if ([originalTransactionID length] > 0)
+    {
+        [MKStoreManager setObject:originalTransactionID forKey:[NSString stringWithFormat:@"%@-transactionID", productIdentifier]];
+    }
+
     MKSKSubscriptionProduct *subscriptionProduct = [self.subscriptionProducts objectForKey:productIdentifier];
     if(subscriptionProduct)
     {
